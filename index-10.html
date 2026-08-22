@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TourneyPro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --bg:#050505;
+    --orange:#ff7a1a;
+    --orange-glow:rgba(255,122,26,0.55);
+    --cream:#fff8ef;
+    --cream-shadow:rgba(255,248,239,0.12);
+  }
+  *{-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--bg);}
+  body{
+    font-family:'Inter',sans-serif;
+    color:var(--cream);
+    max-width:448px;
+    margin:0 auto;
+    position:relative;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,h4,.font-display{font-family:'Rajdhani',sans-serif;}
+  ::-webkit-scrollbar{display:none;}
+  *{scrollbar-width:none;}
+
+  .glass{
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,0.1);
+  }
+  .glass-orange{
+    border:1px solid rgba(255,122,26,0.45);
+    box-shadow:0 0 18px -4px var(--orange-glow), 0 4px 14px -6px var(--cream-shadow);
+  }
+  .neon-text{
+    color:var(--orange);
+    text-shadow:0 0 8px var(--orange-glow), 0 0 18px var(--orange-glow);
+  }
+  .neon-border{
+    border:1px solid var(--orange);
+    box-shadow:0 0 12px -2px var(--orange-glow);
+  }
+  .avatar-glow{
+    box-shadow:0 0 0 2px rgba(168,85,247,0.5), 0 0 14px -2px rgba(168,85,247,0.6);
+  }
+  @keyframes marquee{
+    0%{transform:translateX(100%);}
+    100%{transform:translateX(-100%);}
+  }
+  .marquee-track{
+    display:inline-block;
+    white-space:nowrap;
+    animation:marquee 16s linear infinite;
+  }
+  @keyframes fadeInUp{
+    from{opacity:0;transform:translateY(10px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+  .fade-in-up{animation:fadeInUp .4s ease both;}
+  @keyframes heroIn{
+    from{opacity:0;transform:scale(0.98);}
+    to{opacity:1;transform:scale(1);}
+  }
+  .hero-in{animation:heroIn .5s ease both;}
+  @keyframes glowPulse{
+    0%,100%{box-shadow:0 0 14px -4px var(--orange-glow);}
+    50%{box-shadow:0 0 26px -2px var(--orange-glow);}
+  }
+  .glow-pulse{animation:glowPulse 3.5s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){
+    .marquee-track,.fade-in-up,.hero-in,.glow-pulse{animation:none !important;}
+  }
+
+  .nav-item{transition:all .2s ease;}
+  .nav-item.active .nav-icon{color:var(--orange);filter:drop-shadow(0 0 6px var(--orange-glow));}
+  .nav-item.active .nav-label{color:var(--orange);}
+  .nav-label{font-size:10px;}
+
+  .diamond-btn{
+    width:56px;height:56px;
+    background:linear-gradient(145deg,#ff7a1a,#c9500a);
+    transform:rotate(45deg);
+    border-radius:14px;
+    box-shadow:0 0 22px -2px var(--orange-glow), 0 6px 16px -4px rgba(0,0,0,0.6);
+  }
+  .diamond-btn svg{transform:rotate(-45deg);}
+
+  .progress-track{background:rgba(255,255,255,0.08);}
+  .progress-fill{background:linear-gradient(90deg,#ff7a1a,#ffb066);}
+
+  .page{display:none;}
+  .page.active{display:block;}
+
+  .toast{
+    position:fixed;left:50%;bottom:96px;transform:translateX(-50%);
+    z-index:80;
+  }
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(4px);
+    z-index:70;display:flex;align-items:flex-end;justify-content:center;
+  }
+  .modal-overlay.center{align-items:center;}
+  .input-field{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    color:var(--cream);
+  }
+  .input-field:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,122,26,0.15);}
+  .spin{animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .skeleton{background:linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.1),rgba(255,255,255,0.05));background-size:200% 100%;animation:shimmer 1.4s infinite;}
+  @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+</style>
+</head>
+<body class="pb-24">
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="authScreen" class="fixed inset-0 z-[100] bg-black flex flex-col justify-center px-6" style="max-width:448px;margin:0 auto;">
+  <div class="text-center mb-8 fade-in-up">
+    <div class="w-16 h-16 mx-auto rounded-2xl neon-border flex items-center justify-center mb-3 glow-pulse">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" stroke="#ff7a1a" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9H4.5a2.5 2.5 0 010-5H6m12 5h1.5a2.5 2.5 0 000-5H18M6 9c0 4 2.5 7 6 7s6-3 6-7M6 9V4h12v5m-9 12h6m-3-5v5"/></svg>
+    </div>
+    <h1 class="font-display text-3xl font-bold tracking-wide">TOURNEY<span class="neon-text">PRO</span></h1>
+    <p class="text-white/40 text-sm mt-1">Compete. Win. Withdraw.</p>
+  </div>
+
+  <div class="glass rounded-2xl p-5 fade-in-up">
+    <div class="flex mb-5 rounded-xl overflow-hidden border border-white/10">
+      <button id="tabSignin" class="flex-1 py-2.5 text-sm font-semibold font-display tracking-wide bg-orange-500/20 text-[var(--orange)]" onclick="switchAuthTab('signin')">SIGN IN</button>
+      <button id="tabSignup" class="flex-1 py-2.5 text-sm font-semibold font-display tracking-wide text-white/50" onclick="switchAuthTab('signup')">SIGN UP</button>
+    </div>
+
+    <div id="signinForm" class="space-y-3">
+      <input id="si_email" type="email" placeholder="Email" class="input-field w-full rounded-xl px-4 py-3 text-sm">
+      <input id="si_password" type="password" placeholder="Password" class="input-field w-full rounded-xl px-4 py-3 text-sm">
+      <button onclick="doSignIn()" class="w-full py-3 rounded-xl bg-[var(--orange)] text-black font-display font-bold tracking-wide neon-border">SIGN IN</button>
+    </div>
+
+    <div id="signupForm" class="space-y-3 hidden">
+      <input id="su_username" type="text" placeholder="Username" class="input-field w-full rounded-xl px-4 py-3 text-sm">
+      <input id="su_email" type="email" placeholder="Email" class="input-field w-full rounded-xl px-4 py-3 text-sm">
+      <input id="su_password" type="password" placeholder="Password" class="input-field w-full rounded-xl px-4 py-3 text-sm">
+      <button onclick="doSignUp()" class="w-full py-3 rounded-xl bg-[var(--orange)] text-black font-display font-bold tracking-wide neon-border">CREATE ACCOUNT</button>
+    </div>
+
+    <p id="authError" class="text-red-400 text-xs mt-3 text-center hidden"></p>
+  </div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="fixed top-0 left-0 right-0 z-50 glass" style="max-width:448px;margin:0 auto;">
+  <div class="flex items-center justify-between px-4 py-3">
+    <div class="flex items-center gap-2">
+      <img id="headerLogo" src="" class="w-8 h-8 rounded-lg object-cover hidden">
+      <div id="headerLogoFallback" class="font-display text-lg font-bold tracking-wide">TOURNEY<span class="neon-text">PRO</span></div>
+    </div>
+    <div id="headerAvatar" class="w-9 h-9 rounded-full avatar-glow bg-purple-500/30 flex items-center justify-center overflow-hidden">
+      <img id="headerAvatarImg" src="" class="w-full h-full object-cover">
+    </div>
+  </div>
+  <div class="overflow-hidden border-t border-white/10 py-1.5 bg-black/30">
+    <div class="marquee-track text-xs text-[var(--orange)] px-4" id="marqueeText">Loading announcements...</div>
+  </div>
+</header>
+
+<!-- ============ MAIN ============ -->
+<main class="pt-[76px]">
+
+  <!-- HOME PAGE -->
+  <section id="page-home" class="page active px-4 pt-3">
+    <div id="heroBanner" class="rounded-2xl overflow-hidden glass glass-orange h-36 mb-4 relative hero-in">
+      <img id="heroBannerImg" src="" class="w-full h-full object-cover opacity-0 transition-opacity duration-500">
+      <div id="heroBannerFallback" class="absolute inset-0 flex items-center justify-center">
+        <div class="text-center">
+          <div class="font-display text-xl font-bold neon-text">JOIN THE ARENA</div>
+          <div class="text-white/40 text-xs mt-1">Real matches. Real prizes.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="filterTabs" class="flex gap-2 overflow-x-auto pb-3 mb-1">
+      <button class="filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide neon-border text-[var(--orange)]" data-filter="all">ALL</button>
+      <button class="filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide glass text-white/60" data-filter="upcoming">UPCOMING</button>
+      <button class="filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide glass text-white/60" data-filter="playing">PLAYING</button>
+      <button class="filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide glass text-white/60" data-filter="ended">ENDED</button>
+      <button class="filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide glass text-white/60" data-filter="BGMI">BGMI</button>
+      <button class="filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide glass text-white/60" data-filter="FF">FF</button>
+    </div>
+
+    <div id="tournamentList" class="space-y-3 pb-4"></div>
+  </section>
+
+  <!-- MY MATCHES PAGE -->
+  <section id="page-matches" class="page px-4 pt-3">
+    <h2 class="font-display text-xl font-bold mb-3">My Matches</h2>
+    <div id="myMatchesList" class="space-y-3 pb-4"></div>
+  </section>
+
+  <!-- WALLET PAGE -->
+  <section id="page-wallet" class="page px-4 pt-3">
+    <h2 class="font-display text-xl font-bold mb-3">Wallet</h2>
+    <div class="glass glass-orange rounded-2xl p-5 mb-4 text-center">
+      <div class="text-white/40 text-xs mb-1">Available Balance</div>
+      <div class="font-display text-4xl font-bold neon-text" id="walletBalance">₹0</div>
+      <div class="flex gap-3 mt-4">
+        <button onclick="openModal('addBalanceModal')" class="flex-1 py-2.5 rounded-xl bg-[var(--orange)] text-black font-display font-bold text-sm">ADD BALANCE</button>
+        <button onclick="openModal('withdrawModal')" class="flex-1 py-2.5 rounded-xl glass text-sm font-display font-bold">WITHDRAW</button>
+      </div>
+    </div>
+    <h3 class="font-display text-sm font-bold text-white/60 mb-2 tracking-wide">TRANSACTION HISTORY</h3>
+    <div id="txList" class="space-y-2 pb-4"></div>
+  </section>
+
+  <!-- PROFILE PAGE -->
+  <section id="page-profile" class="page px-4 pt-3">
+    <div class="glass rounded-2xl p-5 mb-4 flex items-center gap-4">
+      <div class="w-16 h-16 rounded-full avatar-glow bg-purple-500/30 overflow-hidden shrink-0">
+        <img id="profileAvatarImg" src="" class="w-full h-full object-cover">
+      </div>
+      <div class="min-w-0">
+        <div id="profileUsername" class="font-display text-lg font-bold truncate">-</div>
+        <div id="profileEmail" class="text-white/40 text-xs truncate">-</div>
+      </div>
+    </div>
+
+    <div class="glass rounded-2xl p-4 mb-4">
+      <h3 class="font-display text-sm font-bold text-white/60 mb-3 tracking-wide">REFERRAL</h3>
+      <div id="referralApplyBox" class="flex gap-2 mb-3">
+        <input id="referralInput" type="text" placeholder="Enter referral code" class="input-field flex-1 rounded-xl px-3 py-2.5 text-sm">
+        <button onclick="applyReferral()" class="px-4 rounded-xl bg-[var(--orange)] text-black font-display font-bold text-xs">APPLY</button>
+      </div>
+      <div class="flex items-center justify-between glass rounded-xl px-3 py-2.5">
+        <span id="myReferralCode" class="font-display text-sm font-bold tracking-widest">------</span>
+        <button onclick="shareReferral()" class="text-[var(--orange)] text-xs font-semibold">COPY / SHARE</button>
+      </div>
+    </div>
+
+    <div class="glass rounded-2xl overflow-hidden">
+      <button onclick="doPasswordReset()" class="w-full text-left px-4 py-3.5 border-b border-white/10 text-sm font-medium flex items-center justify-between">
+        Reset Password <span class="text-white/30">›</span>
+      </button>
+      <button onclick="doLogout()" class="w-full text-left px-4 py-3.5 text-sm font-medium text-red-400">Logout</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10" style="max-width:448px;margin:0 auto;">
+  <div class="flex items-end justify-between px-4 pt-2 pb-2 relative">
+    <button class="nav-item active flex-1 flex flex-col items-center gap-0.5 py-1" data-page="home" onclick="goToPage('home')">
+      <svg class="nav-icon w-5 h-5 text-white/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+      <span class="nav-label text-white/50 font-medium">Home</span>
+    </button>
+    <button class="nav-item flex-1 flex flex-col items-center gap-0.5 py-1" data-page="matches" onclick="goToPage('matches')">
+      <svg class="nav-icon w-5 h-5 text-white/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7l8 5-8 5z"/><circle cx="12" cy="12" r="9" stroke-linecap="round"/></svg>
+      <span class="nav-label text-white/50 font-medium">Matches</span>
+    </button>
+    <div class="flex-1 flex flex-col items-center relative">
+      <button class="diamond-btn -mt-7 flex items-center justify-center" onclick="goToPage('home')">
+        <svg class="w-5 h-5" fill="none" stroke="black" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
+      </button>
+      <span class="nav-label text-white/50 font-medium mt-1">Play</span>
+    </div>
+    <button class="nav-item flex-1 flex flex-col items-center gap-0.5 py-1" data-page="wallet" onclick="goToPage('wallet')">
+      <svg class="nav-icon w-5 h-5 text-white/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path stroke-linecap="round" d="M16 13h.01M3 10h18"/></svg>
+      <span class="nav-label text-white/50 font-medium">Wallet</span>
+    </button>
+    <button class="nav-item flex-1 flex flex-col items-center gap-0.5 py-1" data-page="profile" onclick="goToPage('profile')">
+      <svg class="nav-icon w-5 h-5 text-white/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+      <span class="nav-label text-white/50 font-medium">Profile</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ============ MODALS ============ -->
+
+<!-- Join Match Modal -->
+<div id="joinModal" class="modal-overlay hidden">
+  <div class="glass glass-orange rounded-t-2xl w-full p-5 fade-in-up">
+    <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4"></div>
+    <h3 class="font-display text-lg font-bold mb-1">Join Match</h3>
+    <p class="text-white/40 text-xs mb-4" id="joinModalEntryFee">Entry fee: ₹0</p>
+    <input id="joinGameUid" type="text" placeholder="Enter your Game UID" class="input-field w-full rounded-xl px-4 py-3 text-sm mb-3">
+    <p id="joinModalError" class="text-red-400 text-xs mb-2 hidden"></p>
+    <div class="flex gap-3">
+      <button onclick="closeModal('joinModal')" class="flex-1 py-3 rounded-xl glass text-sm font-display font-bold">CANCEL</button>
+      <button id="joinConfirmBtn" onclick="confirmJoinMatch()" class="flex-1 py-3 rounded-xl bg-[var(--orange)] text-black text-sm font-display font-bold">CONFIRM & JOIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Match Detail / Lobby Modal -->
+<div id="lobbyModal" class="modal-overlay hidden">
+  <div class="glass glass-orange rounded-t-2xl w-full p-5 max-h-[85vh] overflow-y-auto fade-in-up">
+    <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4"></div>
+    <div class="flex items-center justify-between mb-1">
+      <h3 id="lobbyTitle" class="font-display text-lg font-bold">Match Lobby</h3>
+      <button onclick="closeModal('lobbyModal')" class="text-white/40 text-xl leading-none">&times;</button>
+    </div>
+    <p id="lobbyStatus" class="text-white/40 text-xs mb-4">-</p>
+
+    <div id="roomInfoBox" class="glass rounded-xl p-4 mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-white/50 font-display tracking-wide">ROOM DETAILS</span>
+        <span id="roomCountdown" class="text-xs neon-text font-display font-bold"></span>
+      </div>
+      <div id="roomLocked" class="text-center py-3 text-white/40 text-sm">Unlocks before match starts</div>
+      <div id="roomUnlocked" class="hidden space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-sm">Room ID: <span id="roomIdVal" class="font-bold text-[var(--orange)]">-</span></span>
+          <button onclick="copyText('roomIdVal')" class="text-xs text-white/50">Copy</button>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm">Password: <span id="roomPassVal" class="font-bold text-[var(--orange)]">-</span></span>
+          <button onclick="copyText('roomPassVal')" class="text-xs text-white/50">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultsBox" class="hidden mb-4">
+      <h4 class="font-display text-sm font-bold text-white/60 mb-2 tracking-wide">RESULTS</h4>
+      <div id="resultsList" class="space-y-2"></div>
+    </div>
+
+    <div>
+      <h4 class="font-display text-sm font-bold text-white/60 mb-2 tracking-wide">PLAYERS</h4>
+      <div id="lobbyPlayers" class="grid grid-cols-4 gap-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Balance Modal -->
+<div id="addBalanceModal" class="modal-overlay hidden">
+  <div class="glass glass-orange rounded-t-2xl w-full p-5 fade-in-up">
+    <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4"></div>
+    <h3 class="font-display text-lg font-bold mb-4">Add Balance</h3>
+    <input id="addAmount" type="number" min="1" placeholder="Enter amount (₹)" class="input-field w-full rounded-xl px-4 py-3 text-sm mb-3">
+    <p id="addBalanceError" class="text-red-400 text-xs mb-2 hidden"></p>
+    <div class="flex gap-3">
+      <button onclick="closeModal('addBalanceModal')" class="flex-1 py-3 rounded-xl glass text-sm font-display font-bold">CANCEL</button>
+      <button onclick="confirmAddBalance()" class="flex-1 py-3 rounded-xl bg-[var(--orange)] text-black text-sm font-display font-bold">ADD</button>
+    </div>
+  </div>
+</div>
+
+<!-- Withdraw Modal -->
+<div id="withdrawModal" class="modal-overlay hidden">
+  <div class="glass glass-orange rounded-t-2xl w-full p-5 fade-in-up">
+    <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4"></div>
+    <h3 class="font-display text-lg font-bold mb-4">Withdraw</h3>
+    <input id="withdrawUpi" type="text" placeholder="UPI ID" class="input-field w-full rounded-xl px-4 py-3 text-sm mb-3">
+    <input id="withdrawAmount" type="number" min="1" placeholder="Enter amount (₹)" class="input-field w-full rounded-xl px-4 py-3 text-sm mb-3">
+    <p id="withdrawError" class="text-red-400 text-xs mb-2 hidden"></p>
+    <div class="flex gap-3">
+      <button onclick="closeModal('withdrawModal')" class="flex-1 py-3 rounded-xl glass text-sm font-display font-bold">CANCEL</button>
+      <button onclick="confirmWithdraw()" class="flex-1 py-3 rounded-xl bg-[var(--orange)] text-black text-sm font-display font-bold">REQUEST</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastBox" class="toast hidden">
+  <div class="glass glass-orange rounded-xl px-4 py-2.5 text-sm font-medium" id="toastMsg"></div>
+</div>
+
+<script>
+/* ================= FIREBASE INIT ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyC8hgNrSf7Ar2PpBdDHdfOEHaWUAx9awqU",
+  authDomain: "tournament-f5634.firebaseapp.com",
+  projectId: "tournament-f5634",
+  storageBucket: "tournament-f5634.firebasestorage.app",
+  messagingSenderId: "247888903398",
+  appId: "1:247888903398:web:43b287a7605adb2fae8f27"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ================= STATE ================= */
+let currentUser = null;
+let userDocUnsub = null;
+let matchesUnsub = null;
+let myMatchesUnsub = null;
+let txUnsub = null;
+let brandingUnsub = null;
+let activeFilter = 'all';
+let allMatches = [];
+let userData = {};
+let currentLobbyMatchId = null;
+let lobbyParticipantsUnsub = null;
+let lobbyMatchUnsub = null;
+let roomCountdownInterval = null;
+
+/* ================= UTIL ================= */
+function toast(msg){
+  const box = document.getElementById('toastBox');
+  document.getElementById('toastMsg').textContent = msg;
+  box.classList.remove('hidden');
+  clearTimeout(box._t);
+  box._t = setTimeout(()=> box.classList.add('hidden'), 2600);
+}
+function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+function copyText(elId){
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard?.writeText(text).then(()=> toast('Copied!'));
+}
+function deterministicSeed(uid){
+  let hash = 0;
+  for(let i=0;i<uid.length;i++){ hash = (hash * 31 + uid.charCodeAt(i)) >>> 0; }
+  return hash;
+}
+function avatarUrl(uid){
+  return `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(uid||'guest')}`;
+}
+function referralCodeFor(uid){
+  const seed = deterministicSeed(uid).toString(36).toUpperCase();
+  return ('TP' + seed).slice(0,8);
+}
+function fmtMoney(n){ return '₹' + (Number(n)||0).toLocaleString('en-IN'); }
+
+/* ================= AUTH ================= */
+function switchAuthTab(tab){
+  const isIn = tab === 'signin';
+  document.getElementById('signinForm').classList.toggle('hidden', !isIn);
+  document.getElementById('signupForm').classList.toggle('hidden', isIn);
+  document.getElementById('tabSignin').className = 'flex-1 py-2.5 text-sm font-semibold font-display tracking-wide ' + (isIn ? 'bg-orange-500/20 text-[var(--orange)]' : 'text-white/50');
+  document.getElementById('tabSignup').className = 'flex-1 py-2.5 text-sm font-semibold font-display tracking-wide ' + (!isIn ? 'bg-orange-500/20 text-[var(--orange)]' : 'text-white/50');
+  authErr('');
+}
+function authErr(msg){
+  const el = document.getElementById('authError');
+  if(!msg){ el.classList.add('hidden'); return; }
+  el.textContent = msg; el.classList.remove('hidden');
+}
+async function doSignUp(){
+  const username = document.getElementById('su_username').value.trim();
+  const email = document.getElementById('su_email').value.trim();
+  const password = document.getElementById('su_password').value;
+  if(!username || !email || !password){ authErr('Fill all fields'); return; }
+  try{
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const uid = cred.user.uid;
+    await db.collection('users').doc(uid).set({
+      username, email, wallet: 0,
+      referralCode: referralCodeFor(uid),
+      referredBy: null,
+      firstMatchJoined: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ authErr(e.message); }
+}
+async function doSignIn(){
+  const email = document.getElementById('si_email').value.trim();
+  const password = document.getElementById('si_password').value;
+  if(!email || !password){ authErr('Fill all fields'); return; }
+  try{ await auth.signInWithEmailAndPassword(email, password); }
+  catch(e){ authErr(e.message); }
+}
+function doLogout(){
+  detachAllListeners();
+  auth.signOut();
+}
+async function doPasswordReset(){
+  if(!currentUser) return;
+  try{
+    await auth.sendPasswordResetEmail(currentUser.email);
+    toast('Reset email sent');
+  }catch(e){ toast(e.message); }
+}
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    currentUser = user;
+    document.getElementById('authScreen').style.display = 'none';
+    initUserSession();
+  } else {
+    currentUser = null;
+    document.getElementById('authScreen').style.display = 'flex';
+    detachAllListeners();
+  }
+});
+
+function detachAllListeners(){
+  userDocUnsub && userDocUnsub(); userDocUnsub = null;
+  matchesUnsub && matchesUnsub(); matchesUnsub = null;
+  myMatchesUnsub && myMatchesUnsub(); myMatchesUnsub = null;
+  txUnsub && txUnsub(); txUnsub = null;
+  brandingUnsub && brandingUnsub(); brandingUnsub = null;
+  detachLobbyListeners();
+}
+
+/* ================= SESSION INIT ================= */
+function initUserSession(){
+  const uid = currentUser.uid;
+
+  // avatar
+  const av = avatarUrl(uid);
+  document.getElementById('headerAvatarImg').src = av;
+  document.getElementById('profileAvatarImg').src = av;
+
+  // user doc realtime
+  userDocUnsub = db.collection('users').doc(uid).onSnapshot(snap => {
+    if(!snap.exists) return;
+    userData = snap.data();
+    document.getElementById('walletBalance').textContent = fmtMoney(userData.wallet);
+    document.getElementById('profileUsername').textContent = userData.username || '-';
+    document.getElementById('profileEmail').textContent = userData.email || currentUser.email;
+    document.getElementById('myReferralCode').textContent = userData.referralCode || referralCodeFor(uid);
+    document.getElementById('referralApplyBox').style.display = userData.referredBy ? 'none' : 'flex';
+    renderTournamentList();
+    renderMyMatches();
+  }, err => console.error(err));
+
+  // branding (single doc, shared with admin panel: branding/app)
+  brandingUnsub = db.collection('branding').doc('app').onSnapshot(snap => {
+    const d = snap.data() || {};
+    if(d.appName){
+      document.getElementById('headerLogoFallback').innerHTML = `${d.appName.toUpperCase()}`;
+    }
+    if(d.logoUrl){
+      document.getElementById('headerLogo').src = d.logoUrl;
+      document.getElementById('headerLogo').classList.remove('hidden');
+      document.getElementById('headerLogoFallback').classList.add('hidden');
+    } else {
+      document.getElementById('headerLogo').classList.add('hidden');
+      document.getElementById('headerLogoFallback').classList.remove('hidden');
+    }
+    document.getElementById('marqueeText').textContent = d.announcement || 'Welcome to TourneyPro — real matches, real prizes.';
+
+    const img = document.getElementById('heroBannerImg');
+    if(d.bannerUrl){
+      img.src = d.bannerUrl;
+      img.onload = () => { img.classList.remove('opacity-0'); document.getElementById('heroBannerFallback').classList.add('hidden'); };
+    } else {
+      img.classList.add('opacity-0');
+      document.getElementById('heroBannerFallback').classList.remove('hidden');
+    }
+  }, err => console.error(err));
+
+  // matches list (upcoming/playing/ended - reasonable bound)
+  matchesUnsub = db.collection('matches').orderBy('createdAt','desc').limit(50)
+    .onSnapshot(snap => {
+      allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTournamentList();
+    }, err => console.error(err));
+
+  // my joined matches
+  myMatchesUnsub = db.collectionGroup('participants').where('uid','==', uid)
+    .onSnapshot(snap => {
+      window._myParticipations = snap.docs.map(d => ({ matchId: d.ref.parent.parent.id, ...d.data() }));
+      renderTournamentList();
+      renderMyMatches();
+    }, err => console.error(err));
+
+  // transactions
+  txUnsub = db.collection('users').doc(uid).collection('transactions').orderBy('createdAt','desc').limit(30)
+    .onSnapshot(snap => {
+      const list = document.getElementById('txList');
+      if(snap.empty){ list.innerHTML = `<div class="text-white/30 text-xs text-center py-6">No transactions yet</div>`; return; }
+      list.innerHTML = snap.docs.map(d => {
+        const t = d.data();
+        const isCredit = t.amount >= 0;
+        return `<div class="glass rounded-xl px-4 py-3 flex items-center justify-between">
+          <div>
+            <div class="text-sm font-medium">${t.label || t.type || 'Transaction'}</div>
+            <div class="text-white/30 text-xs">${t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString() : ''}</div>
+          </div>
+          <div class="font-display font-bold ${isCredit ? 'text-green-400' : 'text-red-400'}">${isCredit ? '+' : ''}${fmtMoney(t.amount)}</div>
+        </div>`;
+      }).join('');
+    }, err => console.error(err));
+
+  registerPushNotifications();
+}
+
+function joinedMatchIds(){
+  return new Set((window._myParticipations||[]).map(p => p.matchId));
+}
+
+/* ================= NAVIGATION ================= */
+function goToPage(page){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+}
+
+/* ================= FILTER TABS ================= */
+document.getElementById('filterTabs').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if(!btn) return;
+  activeFilter = btn.dataset.filter;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.className = 'filter-btn shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold font-display tracking-wide ' +
+      (b === btn ? 'neon-border text-[var(--orange)]' : 'glass text-white/60');
+  });
+  renderTournamentList();
+});
+
+/* ================= TOURNAMENT LIST ================= */
+function matchStatusLabel(m){
+  return (m.status || 'upcoming').toLowerCase();
+}
+function filteredMatches(){
+  return allMatches.filter(m => {
+    if(activeFilter === 'all') return true;
+    if(['upcoming','playing','ended'].includes(activeFilter)) return matchStatusLabel(m) === activeFilter;
+    return (m.gameType || '').toUpperCase() === activeFilter;
+  });
+}
+function renderTournamentList(){
+  const container = document.getElementById('tournamentList');
+  const list = filteredMatches();
+  if(list.length === 0){
+    container.innerHTML = `<div class="text-white/30 text-sm text-center py-12">No tournaments here yet</div>`;
+    return;
+  }
+  const joined = joinedMatchIds();
+  container.innerHTML = list.map(m => tournamentCardHtml(m, joined.has(m.id))).join('');
+}
+function tournamentCardHtml(m, isJoined){
+  const status = matchStatusLabel(m);
+  const joinedCount = m.joinedCount || 0;
+  const maxPlayers = m.maxPlayers || 0;
+  const pct = maxPlayers ? Math.min(100, Math.round((joinedCount/maxPlayers)*100)) : 0;
+  const full = maxPlayers && joinedCount >= maxPlayers;
+
+  let ctaLabel, ctaAction, ctaDisabled = false;
+  if(status === 'ended'){
+    ctaLabel = 'View Results'; ctaAction = `openLobby('${m.id}')`;
+  } else if(isJoined){
+    ctaLabel = 'View Lobby'; ctaAction = `openLobby('${m.id}')`;
+  } else if(full){
+    ctaLabel = 'Slots Full'; ctaAction = ''; ctaDisabled = true;
+  } else {
+    ctaLabel = 'Join Match'; ctaAction = `openJoinModal('${m.id}')`;
+  }
+
+  return `
+  <div class="glass rounded-2xl p-4 fade-in-up">
+    <div class="flex items-start gap-3 mb-3">
+      <img src="${m.gameLogo || 'https://api.dicebear.com/7.x/shapes/svg?seed='+encodeURIComponent(m.game||'game')}" class="w-11 h-11 rounded-xl object-cover glass shrink-0">
+      <div class="flex-1 min-w-0">
+        <div class="font-display font-bold text-base truncate">${m.game || 'Match'}</div>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="text-[10px] px-2 py-0.5 rounded-full glass text-white/60 font-semibold">${(m.gameType||'').toUpperCase()}</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full ${status==='playing'?'bg-green-500/20 text-green-400':status==='ended'?'bg-white/10 text-white/40':'bg-orange-500/15 text-[var(--orange)]'} font-semibold uppercase">${status}</span>
+        </div>
+      </div>
+      <div class="text-right shrink-0">
+        <div class="text-white/40 text-[10px]">Entry</div>
+        <div class="font-display font-bold text-sm">${fmtMoney(m.entryFee)}</div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-white/40 text-xs">Prize Pool</span>
+      <span class="neon-text font-display font-bold">${fmtMoney(m.prizePool)}</span>
+    </div>
+
+    <div class="mb-3">
+      <div class="progress-track h-1.5 rounded-full overflow-hidden">
+        <div class="progress-fill h-full rounded-full" style="width:${pct}%"></div>
+      </div>
+      <div class="text-white/40 text-[11px] mt-1">${joinedCount} / ${maxPlayers} Joined</div>
+    </div>
+
+    <button ${ctaDisabled ? 'disabled' : `onclick="${ctaAction}"`} class="w-full py-2.5 rounded-xl text-sm font-display font-bold ${ctaDisabled ? 'bg-white/5 text-white/30' : 'bg-[var(--orange)] text-black neon-border'}">${ctaLabel}</button>
+  </div>`;
+}
+
+function renderMyMatches(){
+  const container = document.getElementById('myMatchesList');
+  const parts = window._myParticipations || [];
+  if(parts.length === 0){
+    container.innerHTML = `<div class="text-white/30 text-sm text-center py-12">You haven't joined any match yet</div>`;
+    return;
+  }
+  const byId = {}; allMatches.forEach(m => byId[m.id] = m);
+  const items = parts.map(p => byId[p.matchId]).filter(Boolean);
+  if(items.length === 0){
+    container.innerHTML = `<div class="text-white/30 text-sm text-center py-12">Loading your matches...</div>`;
+    return;
+  }
+  container.innerHTML = items.map(m => tournamentCardHtml(m, true)).join('');
+}
+
+/* ================= JOIN MATCH FLOW ================= */
+let pendingJoinMatchId = null;
+function openJoinModal(matchId){
+  pendingJoinMatchId = matchId;
+  const m = allMatches.find(x => x.id === matchId);
+  if(!m) return;
+  document.getElementById('joinModalEntryFee').textContent = `Entry fee: ${fmtMoney(m.entryFee)}`;
+  document.getElementById('joinGameUid').value = '';
+  document.getElementById('joinModalError').classList.add('hidden');
+  openModal('joinModal');
+}
+async function confirmJoinMatch(){
+  const matchId = pendingJoinMatchId;
+  const gameUid = document.getElementById('joinGameUid').value.trim();
+  const errEl = document.getElementById('joinModalError');
+  if(!gameUid){ errEl.textContent = 'Enter your Game UID'; errEl.classList.remove('hidden'); return; }
+  const btn = document.getElementById('joinConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Joining...';
+  try{
+    const uid = currentUser.uid;
+    const matchRef = db.collection('matches').doc(matchId);
+    const userRef = db.collection('users').doc(uid);
+    const participantRef = matchRef.collection('participants').doc(uid);
+
+    await db.runTransaction(async (tx) => {
+      const matchSnap = await tx.get(matchRef);
+      const userSnap = await tx.get(userRef);
+      const partSnap = await tx.get(participantRef);
+      if(!matchSnap.exists) throw new Error('Match not found');
+      if(partSnap.exists) throw new Error('Already joined');
+      const match = matchSnap.data();
+      const user = userSnap.data();
+      const joinedCount = match.joinedCount || 0;
+      const maxPlayers = match.maxPlayers || 0;
+      if(maxPlayers && joinedCount >= maxPlayers) throw new Error('Slots full');
+      const entryFee = match.entryFee || 0;
+      if((user.wallet||0) < entryFee) throw new Error('Insufficient wallet balance');
+
+      tx.update(matchRef, { joinedCount: joinedCount + 1 });
+      tx.update(userRef, { wallet: (user.wallet||0) - entryFee });
+      tx.set(participantRef, {
+        uid, username: user.username || 'Player', gameUid,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      const txLogRef = userRef.collection('transactions').doc();
+      tx.set(txLogRef, {
+        type: 'entry_fee', label: `Joined ${match.game || 'match'}`,
+        amount: -entryFee, matchId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // referral reward trigger flag (backend Cloud Function reads this and credits referrer)
+      if(!user.firstMatchJoined){
+        tx.update(userRef, { firstMatchJoined: true, firstMatchJoinedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+    });
+
+    closeModal('joinModal');
+    toast('Joined successfully!');
+    openLobby(matchId);
+  }catch(e){
+    errEl.textContent = e.message || 'Failed to join';
+    errEl.classList.remove('hidden');
+  }finally{
+    btn.disabled = false; btn.textContent = 'CONFIRM & JOIN';
+  }
+}
+
+/* ================= LOBBY / RESULTS / ROOM UNLOCK ================= */
+function detachLobbyListeners(){
+  lobbyParticipantsUnsub && lobbyParticipantsUnsub(); lobbyParticipantsUnsub = null;
+  lobbyMatchUnsub && lobbyMatchUnsub(); lobbyMatchUnsub = null;
+  roomCountdownInterval && clearInterval(roomCountdownInterval); roomCountdownInterval = null;
+}
+function openLobby(matchId){
+  currentLobbyMatchId = matchId;
+  detachLobbyListeners();
+  openModal('lobbyModal');
+
+  const matchRef = db.collection('matches').doc(matchId);
+  lobbyMatchUnsub = matchRef.onSnapshot(snap => {
+    if(!snap.exists) return;
+    const m = snap.data();
+    document.getElementById('lobbyTitle').textContent = m.game || 'Match Lobby';
+    document.getElementById('lobbyStatus').textContent = `${(m.gameType||'').toUpperCase()} • ${(m.status||'').toUpperCase()} • ${fmtMoney(m.prizePool)} prize pool`;
+
+    const status = (m.status||'').toLowerCase();
+    const resultsBox = document.getElementById('resultsBox');
+    if(status === 'ended' && Array.isArray(m.results) && m.results.length){
+      resultsBox.classList.remove('hidden');
+      document.getElementById('resultsList').innerHTML = m.results.map((r, i) => {
+        const rank = i+1;
+        const medal = rank===1 ? '🏆' : rank===2 ? '🥈' : rank===3 ? '🥉' : '';
+        const dim = rank>3 ? 'opacity-50' : '';
+        const glow = rank===1 ? 'glass-orange' : '';
+        return `<div class="glass ${glow} rounded-xl px-4 py-2.5 flex items-center justify-between ${dim}">
+          <span class="text-sm font-medium">${medal ? medal+' ' : '#'+rank+' '}${r.username || 'Player'}</span>
+          <span class="font-display font-bold text-sm">${fmtMoney(r.prize||0)}</span>
+        </div>`;
+      }).join('');
+    } else {
+      resultsBox.classList.add('hidden');
+    }
+
+    // room unlock
+    roomCountdownInterval && clearInterval(roomCountdownInterval);
+    const lockedEl = document.getElementById('roomLocked');
+    const unlockedEl = document.getElementById('roomUnlocked');
+    const countdownEl = document.getElementById('roomCountdown');
+    const unlockTs = m.unlockTimestamp?.toDate ? m.unlockTimestamp.toDate() : (m.unlockTimestamp ? new Date(m.unlockTimestamp) : null);
+
+    function updateRoomState(){
+      const now = new Date();
+      if(unlockTs && now >= unlockTs && m.roomId){
+        lockedEl.classList.add('hidden');
+        unlockedEl.classList.remove('hidden');
+        countdownEl.textContent = 'UNLOCKED';
+        document.getElementById('roomIdVal').textContent = m.roomId || '-';
+        document.getElementById('roomPassVal').textContent = m.roomPassword || '-';
+        roomCountdownInterval && clearInterval(roomCountdownInterval);
+      } else if(unlockTs){
+        lockedEl.classList.remove('hidden');
+        unlockedEl.classList.add('hidden');
+        const diff = Math.max(0, unlockTs - now);
+        const h = Math.floor(diff/3600000), mi = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
+        countdownEl.textContent = `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      } else {
+        lockedEl.classList.remove('hidden');
+        unlockedEl.classList.add('hidden');
+        countdownEl.textContent = '';
+      }
+    }
+    updateRoomState();
+    roomCountdownInterval = setInterval(updateRoomState, 1000);
+  });
+
+  lobbyParticipantsUnsub = matchRef.collection('participants').onSnapshot(snap => {
+    const grid = document.getElementById('lobbyPlayers');
+    if(snap.empty){ grid.innerHTML = `<div class="col-span-4 text-white/30 text-xs text-center py-4">No players yet</div>`; return; }
+    grid.innerHTML = snap.docs.map(d => {
+      const p = d.data();
+      return `<div class="flex flex-col items-center gap-1">
+        <img src="${avatarUrl(p.uid)}" class="w-11 h-11 rounded-full avatar-glow object-cover">
+        <span class="text-[10px] text-white/60 truncate w-full text-center">${p.username || 'Player'}</span>
+      </div>`;
+    }).join('');
+  });
+}
+document.getElementById('lobbyModal').addEventListener('click', e => {
+  if(e.target.id === 'lobbyModal'){ closeModal('lobbyModal'); detachLobbyListeners(); }
+});
+
+/* ================= WALLET ================= */
+async function confirmAddBalance(){
+  const amount = Number(document.getElementById('addAmount').value);
+  const errEl = document.getElementById('addBalanceError');
+  if(!amount || amount <= 0){ errEl.textContent = 'Enter a valid amount'; errEl.classList.remove('hidden'); return; }
+  try{
+    const uid = currentUser.uid;
+    const userRef = db.collection('users').doc(uid);
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(userRef);
+      const wallet = (snap.data().wallet||0) + amount;
+      tx.update(userRef, { wallet });
+      const logRef = userRef.collection('transactions').doc();
+      tx.set(logRef, { type:'add_balance', label:'Added balance', amount, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    });
+    closeModal('addBalanceModal');
+    document.getElementById('addAmount').value = '';
+    errEl.classList.add('hidden');
+    toast('Balance added');
+  }catch(e){ errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+}
+async function confirmWithdraw(){
+  const upi = document.getElementById('withdrawUpi').value.trim();
+  const amount = Number(document.getElementById('withdrawAmount').value);
+  const errEl = document.getElementById('withdrawError');
+  if(!upi){ errEl.textContent = 'Enter UPI ID'; errEl.classList.remove('hidden'); return; }
+  if(!amount || amount <= 0){ errEl.textContent = 'Enter a valid amount'; errEl.classList.remove('hidden'); return; }
+  if(amount > (userData.wallet||0)){ errEl.textContent = 'Insufficient balance'; errEl.classList.remove('hidden'); return; }
+  try{
+    const uid = currentUser.uid;
+    await db.collection('withdrawRequests').add({
+      uid, upiId: upi, amount, status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeModal('withdrawModal');
+    document.getElementById('withdrawUpi').value = '';
+    document.getElementById('withdrawAmount').value = '';
+    errEl.classList.add('hidden');
+    toast('Withdraw request submitted');
+  }catch(e){ errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+}
+
+/* ================= REFERRAL ================= */
+async function applyReferral(){
+  const code = document.getElementById('referralInput').value.trim().toUpperCase();
+  if(!code){ toast('Enter a referral code'); return; }
+  if(code === userData.referralCode){ toast("You can't use your own code"); return; }
+  try{
+    const q = await db.collection('users').where('referralCode','==', code).limit(1).get();
+    if(q.empty){ toast('Invalid referral code'); return; }
+    const referrerDoc = q.docs[0];
+    if(referrerDoc.id === currentUser.uid){ toast("You can't refer yourself"); return; }
+    await db.collection('users').doc(currentUser.uid).update({ referredBy: referrerDoc.id });
+    toast('Referral applied!');
+  }catch(e){ toast(e.message); }
+}
+function shareReferral(){
+  const code = userData.referralCode || referralCodeFor(currentUser.uid);
+  const text = `Join TourneyPro with my referral code: ${code}`;
+  if(navigator.share){ navigator.share({ text }).catch(()=>{}); }
+  else { navigator.clipboard?.writeText(code); toast('Code copied!'); }
+}
+
+/* ================= CAPACITOR PUSH NOTIFICATIONS ================= */
+async function registerPushNotifications(){
+  try{
+    if(typeof Capacitor === 'undefined' || !Capacitor.Plugins || !Capacitor.Plugins.PushNotifications) return;
+    const PN = Capacitor.Plugins.PushNotifications;
+    const perm = await PN.requestPermissions();
+    if(perm.receive !== 'granted') return;
+    await PN.register();
+    PN.addListener('registration', async (token) => {
+      if(currentUser && token?.value){
+        await db.collection('users').doc(currentUser.uid).update({ fcmToken: token.value });
+      }
+    });
+    PN.addListener('registrationError', (err) => console.error('Push registration error', err));
+  }catch(e){ console.error('Push setup skipped', e); }
+}
+
+/* ================= MODAL BACKDROP CLOSE ================= */
+['addBalanceModal','withdrawModal','joinModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if(e.target.id === id) closeModal(id);
+  });
+});
+</script>
+</body>
+</html>
