@@ -1,0 +1,133 @@
+name: Build 2 APKs
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    strategy:
+      matrix:
+        variant:
+          - { name: "admin", config: "cap.admin.json", output: "BattlePro-Admin.apk" }
+          - { name: "user",  config: "cap.user.json",  output: "BattlePro-User.apk"  }
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Isko 18 se 20 kar diya taaki Firebase error na de
+          cache: 'npm'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Copy ${{ matrix.variant.name }} Config
+        run: |
+          cp ${{ matrix.variant.config }} capacitor.config.json
+          echo "=== Config being used ==="
+          cat capacitor.config.json
+
+      - name: Add Android Platform
+        run: |
+          rm -rf android
+          npx cap add android
+          mkdir -p android/app/src/main/assets
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Generate App Icon
+        run: |
+          # Tool install karna
+          npm install @capacitor/assets --no-save
+          
+          # Temporary resources folder banana
+          mkdir -p resources
+          
+          # assets/ folder se image uthana (png ya jpg)
+          if [ -f "assets/${{ matrix.variant.name }}.png" ]; then
+            echo "Found PNG for ${{ matrix.variant.name }}"
+            cp "assets/${{ matrix.variant.name }}.png" resources/icon-only.png
+            cp "assets/${{ matrix.variant.name }}.png" resources/icon-foreground.png
+            cp "assets/${{ matrix.variant.name }}.png" resources/icon.png
+          elif [ -f "assets/${{ matrix.variant.name }}.jpg" ]; then
+            echo "Found JPG for ${{ matrix.variant.name }}"
+            cp "assets/${{ matrix.variant.name }}.jpg" resources/icon-only.png
+            cp "assets/${{ matrix.variant.name }}.jpg" resources/icon-foreground.png
+            cp "assets/${{ matrix.variant.name }}.jpg" resources/icon.png
+          fi
+          
+          # Command fix ki hai (--icon hata diya hai kyunki ye option tool me nahi hai)
+          if [ -d "resources" ]; then
+            npx @capacitor/assets generate --android --assetPath resources
+          else
+            echo "⚠️ Warning: Icon file nahi mili, default icon hi rahega."
+          fi
+
+      - name: Fix gradlew
+        run: |
+          python3 -c "
+          content = open('android/gradlew', 'rb').read()
+          fixed = content.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+          open('android/gradlew', 'wb').write(fixed)
+          print('Done. CRLF found:', content.count(b'\r'))
+          "
+          chmod +x android/gradlew
+
+      - name: Set Gradle Properties
+        run: |
+          cat > android/gradle.properties << EOF
+          org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=512m
+          org.gradle.daemon=false
+          org.gradle.parallel=false
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+      - name: Generate Google Services JSON (From GitHub Secrets)
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          mkdir -p android/app
+          echo "$GOOGLE_SERVICES" > android/app/google-services.json
+          python3 -c "import json; json.load(open('android/app/google-services.json')); print('✅ JSON Format Valid!')"
+
+      - name: Build ${{ matrix.variant.name }} APK
+        timeout-minutes: 25
+        working-directory: android
+        run: |
+          bash gradlew assembleDebug \
+            --no-daemon \
+            --no-parallel \
+            --max-workers=2 \
+            --stacktrace
+
+          APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
+          echo "APK found: $APK"
+          cp "$APK" ../${{ matrix.variant.output }}
+
+      - name: Upload ${{ matrix.variant.name }} APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BattlePro-${{ matrix.variant.name }}-APK
+          path: ${{ matrix.variant.output }}
+          retention-days: 7
+          
