@@ -1,6 +1,6 @@
 {
-  "appId": "com.battlepro.user",
-  "appName": "BattlePro User",
+  "appId": "com.tourney.user",
+  "appName": "tourney",
   "webDir": "www/user",
   "plugins": {
     "PushNotifications": {
