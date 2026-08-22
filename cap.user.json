@@ -1,0 +1,10 @@
+{
+  "appId": "com.battlepro.user",
+  "appName": "BattlePro User",
+  "webDir": "www/user",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "battlepro-apps",
+  "version": "1.0.0",
+  "description": "BattlePro Admin and User Apps built with plain HTML/JS and Capacitor",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/push-notifications": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.0",
+    "@capacitor/cli": "^6.0.0"
+  },
+  "author": "Finisher Tech Ai",
+  "license": "MIT"
+}
