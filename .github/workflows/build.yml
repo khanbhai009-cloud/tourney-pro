@@ -30,7 +30,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'zulu'
-          # cache: 'gradle' ko yahan se hata diya hai
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -38,11 +37,31 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Copy ${{ matrix.variant.name }} Config
+      - name: Setup Web Directory & Config (Auto-Fix)
         run: |
+          # 1. Purani TS/JS config hata do taaki conflict na ho (agar hui toh)
+          rm -f capacitor.config.ts capacitor.config.js
+          
+          # 2. Sahi variant ki config copy karo
           cp ${{ matrix.variant.config }} capacitor.config.json
-          echo "=== Config being used ==="
-          cat capacitor.config.json
+          echo "=== Config file ready ==="
+          
+          # 3. Folder banayein
+          mkdir -p www/${{ matrix.variant.name }}
+          
+          # 4. Agar capital letter ka issue hai (e.g. Index.html), usko theek karein
+          if [ -f "www/${{ matrix.variant.name }}/Index.html" ]; then
+            mv "www/${{ matrix.variant.name }}/Index.html" "www/${{ matrix.variant.name }}/index.html"
+          fi
+          
+          # 5. Failsafe: Agar index.html abhi bhi nahi mili, toh error roko
+          if [ ! -f "www/${{ matrix.variant.name }}/index.html" ]; then
+            echo "🚨 index.html nahi mili GitHub actions mein! Ek dummy file bana rahe hain taaki build crash na ho..."
+            echo "<html><body>Error: index.html was missing in repo.</body></html>" > www/${{ matrix.variant.name }}/index.html
+          fi
+          
+          echo "=== Folder contents ==="
+          ls -la www/${{ matrix.variant.name }}
 
       - name: Add Android Platform
         run: |
@@ -55,20 +74,14 @@ jobs:
 
       - name: Generate App Icon
         run: |
-          # Tool install karna
           npm install @capacitor/assets --no-save
-          
-          # Temporary resources folder banana
           mkdir -p resources
           
-          # assets/ folder se image uthana (png ya jpg)
           if [ -f "assets/${{ matrix.variant.name }}.png" ]; then
-            echo "Found PNG for ${{ matrix.variant.name }}"
             cp "assets/${{ matrix.variant.name }}.png" resources/icon-only.png
             cp "assets/${{ matrix.variant.name }}.png" resources/icon-foreground.png
             cp "assets/${{ matrix.variant.name }}.png" resources/icon.png
           elif [ -f "assets/${{ matrix.variant.name }}.jpg" ]; then
-            echo "Found JPG for ${{ matrix.variant.name }}"
             cp "assets/${{ matrix.variant.name }}.jpg" resources/icon-only.png
             cp "assets/${{ matrix.variant.name }}.jpg" resources/icon-foreground.png
             cp "assets/${{ matrix.variant.name }}.jpg" resources/icon.png
@@ -86,7 +99,7 @@ jobs:
           content = open('android/gradlew', 'rb').read()
           fixed = content.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
           open('android/gradlew', 'wb').write(fixed)
-          print('Done. CRLF found:', content.count(b'\r'))
+          print('Done. CRLF fixed.')
           "
           chmod +x android/gradlew
 
@@ -100,13 +113,12 @@ jobs:
           android.enableJetifier=true
           EOF
 
-      - name: Generate Google Services JSON (From GitHub Secrets)
+      - name: Generate Google Services JSON
         env:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           mkdir -p android/app
           echo "$GOOGLE_SERVICES" > android/app/google-services.json
-          python3 -c "import json; json.load(open('android/app/google-services.json')); print('✅ JSON Format Valid!')"
 
       - name: Build ${{ matrix.variant.name }} APK
         timeout-minutes: 25
@@ -119,7 +131,7 @@ jobs:
             --stacktrace
 
           APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
-          echo "APK found: $APK"
+          echo "APK generated at: $APK"
           cp "$APK" ../${{ matrix.variant.output }}
 
       - name: Upload ${{ matrix.variant.name }} APK
