@@ -23,8 +23,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Isko 18 se 20 kar diya taaki Firebase error na de
-          cache: 'npm'
+          node-version: '24' # Node version ko 24 me update kar diya hai
+          # cache: 'npm' ko hata diya hai taaki package-lock.json ki requirement na rahe
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -130,4 +130,4 @@ jobs:
           name: BattlePro-${{ matrix.variant.name }}-APK
           path: ${{ matrix.variant.output }}
           retention-days: 7
-          
+
