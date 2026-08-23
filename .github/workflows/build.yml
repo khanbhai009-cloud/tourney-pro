@@ -39,24 +39,19 @@ jobs:
 
       - name: Setup Web Directory & Config (Strict Rename)
         run: |
-          # 1. Purani config hatao
           rm -f capacitor.config.ts capacitor.config.js
           cp ${{ matrix.variant.config }} capacitor.config.json
           
-          # 2. Admin ke liye duplicate fix
           if [ "${{ matrix.variant.name }}" == "admin" ]; then
             cd www/admin || exit 1
-            # Koi bhi admin.html (space ke sath ya bina space) ko pakdo aur theek rename (mv) kardo
             find . -maxdepth 1 -iname "*admin.html*" | while read -r file; do
               mv "$file" index.html
             done
             cd ../..
           fi
           
-          # 3. User ke liye duplicate fix
           if [ "${{ matrix.variant.name }}" == "user" ]; then
             cd www/user || exit 1
-            # Koi bhi index.html (space ke sath wali) ko pakdo aur theek rename (mv) kardo
             find . -maxdepth 1 -iname "*index.html*" | while read -r file; do
               if [ "$(basename "$file")" != "index.html" ]; then
                 mv "$file" index.html
@@ -77,6 +72,25 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Setup Firebase Gradle Plugin (Auto-Fix)
+        run: |
+          python3 -c '
+          import os
+          
+          root_gradle = "android/build.gradle"
+          if os.path.exists(root_gradle):
+              with open(root_gradle, "r") as f: content = f.read()
+              if "com.google.gms:google-services" not in content:
+                  content = content.replace("dependencies {", "dependencies {\n        classpath \"com.google.gms:google-services:4.4.1\"")
+                  with open(root_gradle, "w") as f: f.write(content)
+          
+          app_gradle = "android/app/build.gradle"
+          if os.path.exists(app_gradle):
+              with open(app_gradle, "a") as f:
+                  f.write("\napply plugin: \"com.google.gms.google-services\"\n")
+          print("✅ Firebase injected into Gradle!")
+          '
+
       - name: Generate App Icon
         run: |
           npm install @capacitor/assets --no-save
@@ -95,7 +109,7 @@ jobs:
           if [ -d "resources" ]; then
             npx @capacitor/assets generate --android --assetPath resources
           else
-            echo "⚠️ Warning: Icon file nahi mili, default icon hi rahega."
+            echo "⚠️ Warning: Icon file nahi mili."
           fi
 
       - name: Fix gradlew
@@ -104,7 +118,6 @@ jobs:
           content = open('android/gradlew', 'rb').read()
           fixed = content.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
           open('android/gradlew', 'wb').write(fixed)
-          print('Done. CRLF fixed.')
           "
           chmod +x android/gradlew
 
@@ -136,7 +149,6 @@ jobs:
             --stacktrace
 
           APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
-          echo "APK generated at: $APK"
           cp "$APK" ../${{ matrix.variant.output }}
 
       - name: Upload ${{ matrix.variant.name }} APK
