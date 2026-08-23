@@ -37,43 +37,35 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Setup Web Directory & Config (Magic Finder)
+      - name: Setup Web Directory & Config (Strict Rename)
         run: |
-          # 1. Purani config hata do aur sahi wali copy karo
+          # 1. Purani config hatao
           rm -f capacitor.config.ts capacitor.config.js
           cp ${{ matrix.variant.config }} capacitor.config.json
           
-          # 2. Capacitor ke liye perfect folders banao
-          mkdir -p www/admin www/user
-          
-          # 3. Admin ke liye admin.html ko dhoondh kar index.html banao
+          # 2. Admin ke liye duplicate fix
           if [ "${{ matrix.variant.name }}" == "admin" ]; then
-            ADMIN_PATH=$(find . -iname "*admin.html" | head -n 1)
-            
-            if [ -n "$ADMIN_PATH" ]; then
-              echo "✅ Admin file mil gayi yahan: $ADMIN_PATH"
-              cp "$ADMIN_PATH" www/admin/index.html
-            else
-              echo "❌ ERROR: admin.html nahi mili!"
-              exit 1
-            fi
+            cd www/admin || exit 1
+            # Koi bhi admin.html (space ke sath ya bina space) ko pakdo aur theek rename (mv) kardo
+            find . -maxdepth 1 -iname "*admin.html*" | while read -r file; do
+              mv "$file" index.html
+            done
+            cd ../..
           fi
           
-          # 4. User ke liye index.html dhoondho (space/gap ko handle karte hue)
+          # 3. User ke liye duplicate fix
           if [ "${{ matrix.variant.name }}" == "user" ]; then
-            USER_PATH=$(find . -iname "*index.html" | grep -i "user" | head -n 1)
-            
-            if [ -n "$USER_PATH" ]; then
-              echo "✅ User file mil gayi yahan: $USER_PATH"
-              # Agar space ke sath bhi mili, toh usko clean karke index.html bana do
-              cp "$USER_PATH" www/user/index.html
-            else
-              echo "❌ ERROR: User ki index.html nahi mili!"
-              exit 1
-            fi
+            cd www/user || exit 1
+            # Koi bhi index.html (space ke sath wali) ko pakdo aur theek rename (mv) kardo
+            find . -maxdepth 1 -iname "*index.html*" | while read -r file; do
+              if [ "$(basename "$file")" != "index.html" ]; then
+                mv "$file" index.html
+              fi
+            done
+            cd ../..
           fi
           
-          echo "=== Capacitor ke liye Final Ready Folder ==="
+          echo "=== Capacitor ke liye Final Folder (Koi duplicate nahi) ==="
           ls -la www/${{ matrix.variant.name }}
 
       - name: Add Android Platform
