@@ -24,14 +24,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          # npm cache hata diya hai taaki package-lock.json ka error na aaye
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
-          # gradle cache hata diya hai taaki missing gradle file ka error na aaye
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -45,34 +43,32 @@ jobs:
           rm -f capacitor.config.ts capacitor.config.js
           cp ${{ matrix.variant.config }} capacitor.config.json
           
-          echo "=== 🔍 Dekhte hain HTML files kahan chhipi hain ==="
-          find . -name "*.html" -not -path '*/\.*'
-          
           # 2. Capacitor ke liye perfect folders banao
           mkdir -p www/admin www/user
           
-          # 3. Admin ke liye admin.html ko dhoondh kar index.html banao taaki white screen na aaye
+          # 3. Admin ke liye admin.html ko dhoondh kar index.html banao
           if [ "${{ matrix.variant.name }}" == "admin" ]; then
-            ADMIN_PATH=$(find . -iname "admin.html" | head -n 1)
+            ADMIN_PATH=$(find . -iname "*admin.html" | head -n 1)
             
             if [ -n "$ADMIN_PATH" ]; then
               echo "✅ Admin file mil gayi yahan: $ADMIN_PATH"
               cp "$ADMIN_PATH" www/admin/index.html
             else
-              echo "❌ ERROR: admin.html pure repo me kahin nahi mili! Upar list check karo."
+              echo "❌ ERROR: admin.html nahi mili!"
               exit 1
             fi
           fi
           
-          # 4. User ke liye index.html dhoondho
+          # 4. User ke liye index.html dhoondho (space/gap ko handle karte hue)
           if [ "${{ matrix.variant.name }}" == "user" ]; then
-            USER_PATH=$(find . -iname "index.html" | grep -i "user" | head -n 1)
+            USER_PATH=$(find . -iname "*index.html" | grep -i "user" | head -n 1)
             
             if [ -n "$USER_PATH" ]; then
               echo "✅ User file mil gayi yahan: $USER_PATH"
+              # Agar space ke sath bhi mili, toh usko clean karke index.html bana do
               cp "$USER_PATH" www/user/index.html
             else
-              echo "❌ ERROR: User ki index.html pure repo me kahin nahi mili! Upar list check karo."
+              echo "❌ ERROR: User ki index.html nahi mili!"
               exit 1
             fi
           fi
