@@ -23,15 +23,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Node version ko 24 me update kar diya hai
-          # cache: 'npm' ko hata diya hai taaki package-lock.json ki requirement na rahe
+          node-version: '24'
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
-          cache: 'gradle'
+          # cache: 'gradle' ko yahan se hata diya hai
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -75,7 +74,6 @@ jobs:
             cp "assets/${{ matrix.variant.name }}.jpg" resources/icon.png
           fi
           
-          # Command fix ki hai (--icon hata diya hai kyunki ye option tool me nahi hai)
           if [ -d "resources" ]; then
             npx @capacitor/assets generate --android --assetPath resources
           else
@@ -130,4 +128,3 @@ jobs:
           name: BattlePro-${{ matrix.variant.name }}-APK
           path: ${{ matrix.variant.output }}
           retention-days: 7
-
